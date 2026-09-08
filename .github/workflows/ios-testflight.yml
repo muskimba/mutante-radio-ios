@@ -1,0 +1,63 @@
+name: iOS → TestFlight
+
+# Roda quando você clica em "Run workflow" na aba Actions do GitHub,
+# ou automaticamente ao criar uma tag  vX.Y.Z .
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.2"
+          channel: stable
+          cache: true
+
+      - name: flutter pub get
+        working-directory: .
+        run: flutter pub get
+
+      - name: CocoaPods
+        working-directory: ios
+        run: pod install --repo-update
+
+      - name: Compilar o app (sem assinar)
+        working-directory: .
+        run: flutter build ios --release --no-codesign
+
+      - name: Configurar chave da App Store Connect
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "$ASC_KEY_P8" | base64 --decode > ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+
+      - name: fastlane beta (build assinado + TestFlight)
+        working-directory: ios
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          bundle install
+          bundle exec fastlane beta
+
+      - name: Guardar o IPA como artefato
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutante-radio-ipa
+          path: ios/build/ios/ipa/*.ipa
+          if-no-files-found: warn

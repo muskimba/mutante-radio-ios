@@ -1,0 +1,3 @@
+app_identifier("com.mutanteradio.mutanteRadio")
+# Sem apple_id / team_id aqui — a autenticação e o team vêm da App Store Connect
+# API key e do secret APPLE_TEAM_ID no CI.

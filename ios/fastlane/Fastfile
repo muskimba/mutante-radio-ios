@@ -1,0 +1,59 @@
+# Build do app iOS e envio pro TestFlight.
+#
+# Assinatura: automática pelo Xcode, usando a App Store Connect API key
+# (nada de certificado .p12 gerado à mão). O fastlane injeta a chave no
+# xcodebuild com -allowProvisioningUpdates, então o Xcode cria/baixa o
+# certificado de distribuição e o provisioning profile sozinho.
+#
+# Variáveis de ambiente (secrets do GitHub Actions):
+#   ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_P8 (base64) / APPLE_TEAM_ID
+
+default_platform(:ios)
+
+APP_ID = "com.mutanteradio.mutanteRadio"
+
+platform :ios do
+  desc "Build e enviar pro TestFlight"
+  lane :beta do
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_content: ENV.fetch("ASC_KEY_P8"),
+      is_key_content_base64: true
+    )
+
+    team_id = ENV.fetch("APPLE_TEAM_ID")
+
+    build_number = latest_testflight_build_number(
+      api_key: api_key,
+      app_identifier: APP_ID,
+      initial_build_number: 0
+    ) + 1
+
+    build_app(
+      workspace: "Runner.xcworkspace",
+      scheme: "Runner",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "build/ios/ipa",
+      xcargs: [
+        "-allowProvisioningUpdates",
+        "DEVELOPMENT_TEAM=#{team_id}",
+        "CODE_SIGN_STYLE=Automatic",
+        "FLUTTER_BUILD_NUMBER=#{build_number}",
+        "CURRENT_PROJECT_VERSION=#{build_number}"
+      ].join(" "),
+      export_options: {
+        method: "app-store",
+        teamID: team_id,
+        signingStyle: "automatic"
+      }
+    )
+
+    upload_to_testflight(
+      api_key: api_key,
+      app_identifier: APP_ID,
+      skip_waiting_for_build_processing: true
+    )
+  end
+end

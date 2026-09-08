@@ -1,0 +1,36 @@
+name: mutante_radio
+description: App da Mutante Radio (iOS) — site ao vivo em WebView + player de áudio nativo.
+publish_to: "none"
+version: 2.0.0+2
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  webview_flutter: ^4.10.0
+  just_audio: ^0.9.42
+  just_audio_background: ^0.0.1-beta.15
+  http: ^1.2.2
+  url_launcher: ^6.3.1
+  connectivity_plus: ^6.1.0
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.1
+
+flutter:
+  uses-material-design: true
+
+flutter_launcher_icons:
+  image_path: "assets/icon/icon.png"
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  min_sdk_android: 21
+  adaptive_icon_background: "#000000"
+  adaptive_icon_foreground: "assets/icon/icon_foreground.png"

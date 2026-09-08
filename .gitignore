@@ -1,0 +1,30 @@
+# ─── segredos de assinatura — NUNCA versionar ───────────────
+*.p12
+*.mobileprovision
+**/*.p8
+
+# ─── Flutter / Dart ─────────────────────────────────────────
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+.pub-cache/
+coverage/
+*.iml
+.idea/
+**/doc/api/
+
+# ─── iOS (gerado no Mac) ────────────────────────────────────
+ios/Flutter/ephemeral/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/.last_build_id
+ios/Pods/
+ios/.symlinks/
+ios/Gemfile.lock
+ios/fastlane/report.xml
+ios/fastlane/README.md
+
+# ─── diversos ───────────────────────────────────────────────
+*.log
+.DS_Store

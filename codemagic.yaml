@@ -1,0 +1,36 @@
+# Build de iOS na nuvem (Codemagic) — roda num Mac de verdade.
+# https://codemagic.io  (free tier: 500 min/mês de macOS M2)
+#
+# Antes de rodar o workflow, no painel do Codemagic:
+#   1. Conectar a conta Apple Developer (Teams > Integrations > App Store Connect)
+#      criando uma "App Store Connect API key".
+#   2. Criar um grupo de variáveis chamado "appstore" com a referência da chave.
+#   3. Registrar o bundle id no portal Apple e criar o app no App Store Connect.
+#      (o bundle id abaixo pode ser trocado pelo do time Apple de quem for publicar)
+
+workflows:
+  ios-release:
+    name: iOS (IPA para App Store / TestFlight)
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: appstore
+    environment:
+      flutter: 3.47.2
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.mutanteradio.mutanteRadio
+    scripts:
+      - name: Flutter deps
+        script: flutter pub get
+      - name: Pods
+        script: cd ios && pod install
+      - name: Build IPA
+        script: flutter build ipa --release --build-number=$(($(date +%s) / 60))
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
