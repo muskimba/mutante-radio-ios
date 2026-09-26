@@ -92,7 +92,22 @@ jobs:
             echo "idb nao disponivel nesse runner, o video nao vai ter o trecho de 2o plano."
           fi
 
-          # comeca a gravar ANTES de abrir o app, pra pegar a home screen tambem
+          # ---- "ensaio" FORA da gravacao: abre o app uma vez pra esquentar
+          # rede/DNS/TLS (o site carrega bem mais rapido na 2a vez) e a
+          # conexao do idb (a 1a chamada dele tambem e lenta). Sem isso, o
+          # video de verdade fica com um trecho enorme de tela parada.
+          echo "Ensaio (fora da gravacao)..."
+          xcrun simctl launch "$UDID" "$BUNDLE_ID"
+          sleep 30
+          if [ "$HAVE_IDB" = "1" ]; then
+            idb ui button HOME --udid "$UDID" >/dev/null 2>&1 || true
+            sleep 2
+          fi
+          xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
+          sleep 1
+
+          # ---- gravacao de verdade, com tudo ja "quente" ----
+          echo "Gravando..."
           xcrun simctl io "$UDID" recordVideo --codec h264 "$OUT/raw.mov" &
           RECPID=$!
 
