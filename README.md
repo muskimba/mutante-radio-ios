@@ -88,8 +88,14 @@ free tier 500 min/mês).
 
 - **Ícone 1024×1024:** use `assets/icon/icon.png` (já está nesse tamanho, sem
   transparência)
-- **Screenshots:** precisam ser feitas por tamanho de tela de iPhone — as do
-  projeto Android não servem (dimensões diferentes)
+- **Screenshots:** gere automaticamente pelo workflow
+  [`.github/workflows/ios-screenshots.yml`](.github/workflows/ios-screenshots.yml)
+  — **Actions → "Screenshots iOS (App Store)" → Run workflow**. Roda num
+  simulador de verdade no Mac da nuvem, **sem precisar de conta Apple nem
+  assinatura de código** (pode rodar antes mesmo de ter a conta criada). O
+  resultado fica em *Artifacts* no final da execução, pronto pra subir no App
+  Store Connect. As screenshots do projeto Android **não servem** (dimensões
+  e chrome de sistema diferentes).
 - **Política de privacidade:** [`store/privacy-policy.html`](store/privacy-policy.html)
   — hospede numa URL pública e informe no App Store Connect. O app não coleta dados.
 
@@ -97,15 +103,28 @@ free tier 500 min/mês).
 
 Apps que são "só um site num WebView" às vezes tomam rejeição da Apple. Este app
 tem funcionalidade nativa real (player em segundo plano, controles de mídia,
-ficha de letra da música) — descreva bem isso nas notas para o revisor.
+ficha de letra da música) — descreva bem isso nas notas para o revisor (texto
+pronto logo abaixo).
 
-## Textos da ficha (sugestão)
+## Textos da ficha (prontos pra copiar e colar)
 
-**Nome:** Mutante Radio
+**Nome** (máx. 30 caracteres)
+```
+Mutante Radio
+```
 
-**Subtítulo:** Rádio independente, underground e ao vivo
+**Subtítulo** (máx. 30 caracteres)
+```
+Rádio independente ao vivo
+```
 
-**Descrição:**
+**Texto promocional** (máx. 170 caracteres — único campo que dá pra atualizar
+depois **sem** precisar de nova revisão)
+```
+Punk, hardcore, pós-punk, garage e psicodelia — ao vivo, 24h. Veja a música tocando com capa e letra, e continue ouvindo com a tela desligada.
+```
+
+**Descrição** (máx. 4000 caracteres)
 ```
 A Mutante Radio no seu bolso.
 
@@ -123,4 +142,25 @@ tudo que foge do óbvio, sem parar.
 Sintonize e fique mutante.
 
 mutanteradio.com
+```
+
+**Palavras-chave** (máx. 100 caracteres, separadas por vírgula, sem espaço
+depois da vírgula)
+```
+rádio,punk,rock,underground,independente,streaming,música,hardcore,alternativo,ao vivo
+```
+
+**Categoria:** Música (principal) · Estilo de vida (secundária, opcional)
+
+**URL de suporte:** `https://www.mutanteradio.com` (ou um e-mail de contato)
+
+**Notas para o revisor** (campo "App Review Information → Notes" — é onde se
+antecipa a questão da guideline 4.2)
+```
+O app mostra o site mutanteradio.com num WebView, mas tem funcionalidade
+nativa real além disso: um player de áudio que toca a transmissão ao vivo da
+rádio, continua tocando com o app em segundo plano e a tela desligada, mostra
+controles de mídia na tela de bloqueio e exibe a letra da música tocando no
+momento. O app não tem cadastro, login nem coleta de dados — é só o player +
+o conteúdo do site da rádio.
 ```
