@@ -1,0 +1,52 @@
+name: IPA sem assinatura (teste via AltStore)
+
+# Builda um .ipa SEM assinatura de código - nao serve pra App Store nem
+# TestFlight, mas da pra instalar num iPhone de verdade via AltStore/
+# AltServer (sideload com Apple ID gratis, sem precisar da conta paga
+# do Apple Developer Program). Util pra testar enquanto a conta paga
+# nao e aprovada.
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.2"
+          channel: stable
+          cache: true
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      - name: CocoaPods
+        working-directory: ios
+        run: pod install --repo-update
+
+      - name: Build (release, sem assinatura)
+        run: flutter build ios --release --no-codesign
+
+      - name: Empacotar .ipa
+        run: |
+          set -e
+          cd build/ios/iphoneos
+          mkdir -p Payload
+          cp -r Runner.app Payload/
+          zip -r -q ../../../MutanteRadio-unsigned.ipa Payload
+          cd -
+          ls -la MutanteRadio-unsigned.ipa
+
+      - name: Guardar .ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipa-sem-assinatura
+          path: MutanteRadio-unsigned.ipa
+          if-no-files-found: error
