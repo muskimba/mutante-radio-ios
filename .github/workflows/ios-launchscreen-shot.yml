@@ -1,0 +1,78 @@
+name: Screenshot da launch screen
+
+# Tira um screenshot BEM no instante do lancamento (antes do app carregar
+# conteudo), pra conferir o visual da tela de abertura isoladamente -
+# sem depender de video, que costuma ser rapido demais pra pegar esse
+# momento quando a rede/cache ja estao "quentes".
+on:
+  workflow_dispatch:
+
+jobs:
+  shot:
+    runs-on: macos-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.2"
+          channel: stable
+          cache: true
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      - name: CocoaPods
+        working-directory: ios
+        run: pod install --repo-update
+
+      - name: Build para o Simulador
+        run: flutter build ios --simulator --debug
+
+      - name: Capturar a launch screen
+        run: |
+          set -e
+          APP_PATH="build/ios/iphonesimulator/Runner.app"
+          BUNDLE_ID="com.mutanteradio.mutanteRadio"
+          OUT="screenshots"
+          mkdir -p "$OUT"
+
+          RUNTIME=$(xcrun simctl list runtimes -j | jq -r '
+            [.runtimes[] | select(.name | startswith("iOS"))] | sort_by(.version) | last | .identifier')
+          UDID=$(xcrun simctl list devices -j | jq -r --arg rt "$RUNTIME" '
+            .devices[$rt][]? | select(.isAvailable) | select(.name | test("Pro Max")) | .udid' | head -1)
+          if [ -z "$UDID" ]; then
+            UDID=$(xcrun simctl list devices -j | jq -r --arg rt "$RUNTIME" '
+              .devices[$rt][]? | select(.isAvailable) | select(.name | test("iPhone")) | .udid' | head -1)
+          fi
+          echo "UDID: $UDID"
+
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          open -a Simulator --args -CurrentDeviceUDID "$UDID"
+          sleep 5
+          xcrun simctl install "$UDID" "$APP_PATH"
+
+          # varias tentativas: builda uma rajada de screenshots logo apos o
+          # lancamento, sem dar tempo do Flutter substituir a tela
+          xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
+          sleep 1
+          xcrun simctl launch "$UDID" "$BUNDLE_ID"
+          for i in 1 2 3 4 5 6; do
+            xcrun simctl io "$UDID" screenshot "$OUT/launch-$i.png" || true
+            sleep 0.15
+          done
+
+          xcrun simctl shutdown "$UDID" || true
+          ls -la "$OUT"
+
+      - name: Guardar screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: launch-screen-shots
+          path: screenshots/*.png
+          if-no-files-found: warn
