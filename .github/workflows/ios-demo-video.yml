@@ -72,6 +72,13 @@ jobs:
 
           xcrun simctl boot "$UDID" || true
           xcrun simctl bootstatus "$UDID" -b
+
+          # abre o app Simulator.app DE VERDADE (nao so o processo do device via
+          # simctl) - sem isso a janela fica "oculta" pro iOS e o WKWebView (o
+          # site dentro do app) nao desenha nada, so a UI nativa Flutter aparece
+          open -a Simulator --args -CurrentDeviceUDID "$UDID"
+          sleep 5
+
           xcrun simctl install "$UDID" "$APP_PATH"
 
           HAVE_IDB=0
@@ -89,20 +96,20 @@ jobs:
           xcrun simctl io "$UDID" recordVideo --codec h264 "$OUT/raw.mov" &
           RECPID=$!
 
-          # tela inicial (home) visivel por alguns segundos antes de abrir o app
-          sleep 3
+          # tela inicial (home) visivel rapidinho antes de abrir o app
+          sleep 1.5
 
           xcrun simctl launch "$UDID" "$BUNDLE_ID"
 
           # roteiro automatico dentro do app (ver _runDemoSequence em lib/home_page.dart):
-          # abre -> site carrega -> toca sozinho (~2s) -> abre o player (~+4s) -> mostra a letra
-          sleep 20
+          # abre -> site carrega -> toca sozinho (~0.8s) -> abre o player (~+1.5s) -> mostra a letra
+          sleep 10
 
           if [ "$HAVE_IDB" = "1" ]; then
             echo "Pressionando o botao Home via idb..."
             if idb ui button HOME --udid "$UDID"; then
               echo "Home pressionado, mostrando o app em 2o plano..."
-              sleep 5
+              sleep 2.5
             else
               echo "idb nao conseguiu pressionar Home, seguindo sem esse trecho."
             fi

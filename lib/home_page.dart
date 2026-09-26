@@ -72,10 +72,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _runDemoSequence() async {
-    await Future.delayed(const Duration(seconds: 2));
+    await Future.delayed(const Duration(milliseconds: 800));
     if (!mounted) return;
     RadioService.instance.toggle();
-    await Future.delayed(const Duration(seconds: 4));
+    await Future.delayed(const Duration(milliseconds: 1500));
     if (!mounted) return;
     showNowPlayingSheet(context);
   }
