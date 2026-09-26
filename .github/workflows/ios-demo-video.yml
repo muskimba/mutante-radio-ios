@@ -1,10 +1,15 @@
 name: Video demo iOS (divulgação)
 
 # Grava um vídeo do app rodando no Simulador do iOS, num Mac da nuvem do
-# GitHub Actions — não precisa de conta Apple nem assinatura de código. O
-# app roda em "modo demo" (--dart-define=DEMO_MODE=true): abre, carrega o
-# site, toca o áudio sozinho e abre o player com a letra, tudo automático,
-# só pra dar tempo da gravação capturar o fluxo de uso.
+# GitHub Actions — não precisa de conta Apple nem assinatura de código.
+#
+# Roteiro: mostra a tela inicial (home) -> abre o app -> o app roda em
+# "modo demo" (--dart-define=DEMO_MODE=true): carrega o site, toca o
+# áudio sozinho e abre o player com a letra, tudo automático -> tenta
+# apertar o botão Home (via idb) pra mostrar o app em segundo plano.
+#
+# A etapa do botão Home usa uma ferramenta extra (idb) que pode falhar
+# dependendo do runner; se falhar, o resto do vídeo sai normalmente.
 on:
   workflow_dispatch:
 
@@ -34,6 +39,15 @@ jobs:
       - name: Build para o Simulador (modo demo)
         run: flutter build ios --simulator --debug --dart-define=DEMO_MODE=true
 
+      - name: Instalar idb (simula o botão Home; se falhar, seguimos sem essa parte)
+        continue-on-error: true
+        run: |
+          brew tap facebook/fb
+          brew install facebook/fb/idb-companion
+          pip3 install --user fb-idb
+          PIP_BIN="$(python3 -m site --user-base)/bin"
+          echo "$PIP_BIN" >> "$GITHUB_PATH"
+
       - name: Gravar vídeo de demonstração
         run: |
           set -e
@@ -60,20 +74,43 @@ jobs:
           xcrun simctl bootstatus "$UDID" -b
           xcrun simctl install "$UDID" "$APP_PATH"
 
-          # começa a gravar ANTES de abrir o app, pra pegar a launch screen também
+          HAVE_IDB=0
+          if command -v idb_companion >/dev/null 2>&1 && command -v idb >/dev/null 2>&1; then
+            echo "idb disponivel, iniciando companion..."
+            idb_companion --udid "$UDID" > idb_companion.log 2>&1 &
+            IDBPID=$!
+            sleep 6
+            HAVE_IDB=1
+          else
+            echo "idb nao disponivel nesse runner, o video nao vai ter o trecho de 2o plano."
+          fi
+
+          # comeca a gravar ANTES de abrir o app, pra pegar a home screen tambem
           xcrun simctl io "$UDID" recordVideo --codec h264 "$OUT/raw.mov" &
           RECPID=$!
-          sleep 2
+
+          # tela inicial (home) visivel por alguns segundos antes de abrir o app
+          sleep 3
 
           xcrun simctl launch "$UDID" "$BUNDLE_ID"
 
-          # roteiro automático (ver _runDemoSequence em lib/home_page.dart):
-          # abre -> site carrega -> toca sozinho (~2s) -> abre o player (~+4s)
-          # damos folga pra cobrir tudo + mostrar a letra por um tempo
-          sleep 22
+          # roteiro automatico dentro do app (ver _runDemoSequence em lib/home_page.dart):
+          # abre -> site carrega -> toca sozinho (~2s) -> abre o player (~+4s) -> mostra a letra
+          sleep 20
+
+          if [ "$HAVE_IDB" = "1" ]; then
+            echo "Pressionando o botao Home via idb..."
+            if idb ui button HOME --udid "$UDID"; then
+              echo "Home pressionado, mostrando o app em 2o plano..."
+              sleep 5
+            else
+              echo "idb nao conseguiu pressionar Home, seguindo sem esse trecho."
+            fi
+          fi
 
           kill -INT "$RECPID" || true
           wait "$RECPID" || true
+          [ "$HAVE_IDB" = "1" ] && kill "$IDBPID" 2>/dev/null || true
 
           xcrun simctl shutdown "$UDID" || true
 
