@@ -44,7 +44,7 @@ jobs:
         run: |
           brew tap facebook/fb
           brew install facebook/fb/idb-companion
-          pip3 install --user fb-idb
+          pip3 install --user --break-system-packages fb-idb
           PIP_BIN="$(python3 -m site --user-base)/bin"
           echo "$PIP_BIN" >> "$GITHUB_PATH"
 
