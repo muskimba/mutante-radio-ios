@@ -43,22 +43,37 @@ jobs:
           OUT="screenshots"
           mkdir -p "$OUT"
 
-          # Dispositivos alvo: 6,9"/6,7" (obrigatório) e 6,5" (opcional/legado)
-          DEVICES=(
-            "iPhone 16 Pro Max:6.9"
-            "iPhone 8 Plus:5.5"
-          )
+          # descobre o runtime iOS mais novo disponível nesse runner (o nome
+          # dos aparelhos muda a cada ano/imagem, então nunca fixamos nomes)
+          RUNTIME=$(xcrun simctl list runtimes -j | jq -r '
+            [.runtimes[] | select(.name | startswith("iOS"))] | sort_by(.version) | last | .identifier')
+          echo "Runtime: $RUNTIME"
 
-          for entry in "${DEVICES[@]}"; do
-            NAME="${entry%%:*}"
-            TAG="${entry##*:}"
-            echo "=== $NAME ($TAG) ==="
+          pick_udid () {
+            # $1 = regex preferido (ex.: "Pro Max"), $2 = lista de UDIDs a excluir
+            xcrun simctl list devices -j | jq -r --arg rt "$RUNTIME" --arg pat "$1" '
+              .devices[$rt][]? | select(.isAvailable) | select(.name | test($pat)) | .udid' \
+              | grep -vxF -f <(echo "$2") | head -1
+          }
 
-            UDID=$(xcrun simctl list devices available | grep -F "$NAME (" | head -1 | grep -oE '[0-9A-F-]{36}' || true)
-            if [ -z "$UDID" ]; then
-              echo "Simulador '$NAME' não encontrado nesse runner, pulando."
-              continue
-            fi
+          MAIN_UDID=$(pick_udid "Pro Max" "")
+          if [ -z "$MAIN_UDID" ]; then
+            MAIN_UDID=$(xcrun simctl list devices -j | jq -r --arg rt "$RUNTIME" '
+              .devices[$rt][]? | select(.isAvailable) | .udid' | head -1)
+          fi
+          SECOND_UDID=$(pick_udid "Plus|SE" "$MAIN_UDID")
+
+          DEVICE_IDS=("6.9in:$MAIN_UDID")
+          if [ -n "$SECOND_UDID" ] && [ "$SECOND_UDID" != "$MAIN_UDID" ]; then
+            DEVICE_IDS+=("5.5in:$SECOND_UDID")
+          fi
+
+          for entry in "${DEVICE_IDS[@]}"; do
+            TAG="${entry%%:*}"
+            UDID="${entry##*:}"
+            NAME=$(xcrun simctl list devices -j | jq -r --arg rt "$RUNTIME" --arg u "$UDID" '
+              .devices[$rt][]? | select(.udid==$u) | .name')
+            echo "=== $NAME ($TAG) — $UDID ==="
 
             xcrun simctl boot "$UDID" || true
             xcrun simctl bootstatus "$UDID" -b
@@ -67,7 +82,7 @@ jobs:
 
             # dá tempo do site carregar dentro do WebView antes da captura
             sleep 15
-            xcrun simctl io "$UDID" screenshot "$OUT/${TAG}in-01-app.png"
+            xcrun simctl io "$UDID" screenshot "$OUT/${TAG}-01-app.png"
 
             xcrun simctl shutdown "$UDID" || true
           done

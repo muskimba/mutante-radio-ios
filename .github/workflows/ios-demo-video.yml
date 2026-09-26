@@ -1,0 +1,94 @@
+name: Video demo iOS (divulgação)
+
+# Grava um vídeo do app rodando no Simulador do iOS, num Mac da nuvem do
+# GitHub Actions — não precisa de conta Apple nem assinatura de código. O
+# app roda em "modo demo" (--dart-define=DEMO_MODE=true): abre, carrega o
+# site, toca o áudio sozinho e abre o player com a letra, tudo automático,
+# só pra dar tempo da gravação capturar o fluxo de uso.
+on:
+  workflow_dispatch:
+
+jobs:
+  video:
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.2"
+          channel: stable
+          cache: true
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      - name: CocoaPods
+        working-directory: ios
+        run: pod install --repo-update
+
+      - name: Build para o Simulador (modo demo)
+        run: flutter build ios --simulator --debug --dart-define=DEMO_MODE=true
+
+      - name: Gravar vídeo de demonstração
+        run: |
+          set -e
+          APP_PATH="build/ios/iphonesimulator/Runner.app"
+          BUNDLE_ID="com.mutanteradio.mutanteRadio"
+          OUT="video"
+          mkdir -p "$OUT"
+
+          RUNTIME=$(xcrun simctl list runtimes -j | jq -r '
+            [.runtimes[] | select(.name | startswith("iOS"))] | sort_by(.version) | last | .identifier')
+          echo "Runtime: $RUNTIME"
+
+          UDID=$(xcrun simctl list devices -j | jq -r --arg rt "$RUNTIME" '
+            .devices[$rt][]? | select(.isAvailable) | select(.name | test("Pro Max")) | .udid' | head -1)
+          if [ -z "$UDID" ]; then
+            UDID=$(xcrun simctl list devices -j | jq -r --arg rt "$RUNTIME" '
+              .devices[$rt][]? | select(.isAvailable) | select(.name | test("iPhone")) | .udid' | head -1)
+          fi
+          NAME=$(xcrun simctl list devices -j | jq -r --arg rt "$RUNTIME" --arg u "$UDID" '
+            .devices[$rt][]? | select(.udid==$u) | .name')
+          echo "Aparelho: $NAME ($UDID)"
+
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" "$APP_PATH"
+
+          # começa a gravar ANTES de abrir o app, pra pegar a launch screen também
+          xcrun simctl io "$UDID" recordVideo --codec h264 "$OUT/raw.mov" &
+          RECPID=$!
+          sleep 2
+
+          xcrun simctl launch "$UDID" "$BUNDLE_ID"
+
+          # roteiro automático (ver _runDemoSequence em lib/home_page.dart):
+          # abre -> site carrega -> toca sozinho (~2s) -> abre o player (~+4s)
+          # damos folga pra cobrir tudo + mostrar a letra por um tempo
+          sleep 22
+
+          kill -INT "$RECPID" || true
+          wait "$RECPID" || true
+
+          xcrun simctl shutdown "$UDID" || true
+
+          ls -la "$OUT"
+
+      - name: Converter para mp4
+        run: |
+          brew install ffmpeg
+          ffmpeg -y -i video/raw.mov -c copy video/mutante-radio-demo.mp4
+
+      - name: Guardar vídeo
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-video
+          path: |
+            video/raw.mov
+            video/mutante-radio-demo.mp4
+          if-no-files-found: warn

@@ -5,6 +5,11 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'config.dart';
 import 'now_playing_sheet.dart';
 import 'player_bar.dart';
+import 'radio_service.dart';
+
+/// Ativado só via `--dart-define=DEMO_MODE=true` (build de CI pra gerar
+/// vídeo/screenshot de divulgação) — toca e abre o player sozinho.
+const _kDemoMode = bool.fromEnvironment('DEMO_MODE');
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -16,6 +21,7 @@ class _HomePageState extends State<HomePage> {
   late final WebViewController _web;
   bool _loading = true;
   bool _error = false;
+  bool _demoStarted = false;
 
   @override
   void initState() {
@@ -32,6 +38,10 @@ class _HomePageState extends State<HomePage> {
           onPageFinished: (_) async {
             await _web.runJavaScript(Config.injectedJs);
             if (mounted) setState(() => _loading = false);
+            if (_kDemoMode && !_demoStarted) {
+              _demoStarted = true;
+              _runDemoSequence();
+            }
           },
           onWebResourceError: (err) {
             if (err.isForMainFrame ?? true) {
@@ -59,6 +69,15 @@ class _HomePageState extends State<HomePage> {
     } else if (mounted) {
       Navigator.of(context).maybePop();
     }
+  }
+
+  Future<void> _runDemoSequence() async {
+    await Future.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+    RadioService.instance.toggle();
+    await Future.delayed(const Duration(seconds: 4));
+    if (!mounted) return;
+    showNowPlayingSheet(context);
   }
 
   Future<void> _reload() async {
