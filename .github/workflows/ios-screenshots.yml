@@ -30,7 +30,7 @@ jobs:
         run: pod install --repo-update
 
       - name: Build para o Simulador
-        run: flutter build ios --simulator --release
+        run: flutter build ios --simulator --debug
 
       - name: Listar simuladores disponíveis
         run: xcrun simctl list devices available
