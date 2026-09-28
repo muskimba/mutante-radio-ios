@@ -98,7 +98,7 @@ jobs:
           # video de verdade fica com um trecho enorme de tela parada.
           echo "Ensaio (fora da gravacao)..."
           xcrun simctl launch "$UDID" "$BUNDLE_ID"
-          sleep 30
+          sleep 40
           if [ "$HAVE_IDB" = "1" ]; then
             idb ui button HOME --udid "$UDID" >/dev/null 2>&1 || true
             sleep 2
@@ -118,13 +118,13 @@ jobs:
 
           # roteiro automatico dentro do app (ver _runDemoSequence em lib/home_page.dart):
           # abre -> site carrega -> toca sozinho (~0.8s) -> abre o player (~+1.5s) -> mostra a letra
-          sleep 10
+          sleep 20
 
           if [ "$HAVE_IDB" = "1" ]; then
             echo "Pressionando o botao Home via idb..."
             if idb ui button HOME --udid "$UDID"; then
               echo "Home pressionado, mostrando o app em 2o plano..."
-              sleep 2.5
+              sleep 3
             else
               echo "idb nao conseguiu pressionar Home, seguindo sem esse trecho."
             fi
