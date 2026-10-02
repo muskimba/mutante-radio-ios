@@ -1,9 +1,11 @@
 # Build do app iOS e envio pro TestFlight.
 #
 # Assinatura: automática pelo Xcode, usando a App Store Connect API key
-# (nada de certificado .p12 gerado à mão). O fastlane injeta a chave no
-# xcodebuild com -allowProvisioningUpdates, então o Xcode cria/baixa o
-# certificado de distribuição e o provisioning profile sozinho.
+# (nada de certificado .p12 gerado à mão). A chave .p8 (gravada pelo workflow
+# em ~/.appstoreconnect/private_keys/) é passada ao xcodebuild por
+# -authenticationKeyPath/-ID/-IssuerID junto com -allowProvisioningUpdates;
+# sem esses três o Xcode do CI não tem conta ("No Accounts") e não cria o
+# certificado de distribuição nem o provisioning profile.
 #
 # Variáveis de ambiente (secrets do GitHub Actions):
 #   ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_P8 (base64) / APPLE_TEAM_ID
@@ -23,6 +25,7 @@ platform :ios do
     )
 
     team_id = ENV.fetch("APPLE_TEAM_ID")
+    key_path = File.expand_path("~/.appstoreconnect/private_keys/AuthKey_#{ENV.fetch('ASC_KEY_ID')}.p8")
 
     build_number = latest_testflight_build_number(
       api_key: api_key,
@@ -38,6 +41,9 @@ platform :ios do
       output_directory: "build/ios/ipa",
       xcargs: [
         "-allowProvisioningUpdates",
+        "-authenticationKeyPath #{key_path}",
+        "-authenticationKeyID #{ENV.fetch('ASC_KEY_ID')}",
+        "-authenticationKeyIssuerID #{ENV.fetch('ASC_ISSUER_ID')}",
         "DEVELOPMENT_TEAM=#{team_id}",
         "CODE_SIGN_STYLE=Automatic",
         "FLUTTER_BUILD_NUMBER=#{build_number}",
