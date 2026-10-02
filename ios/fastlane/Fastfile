@@ -27,11 +27,16 @@ platform :ios do
     team_id = ENV.fetch("APPLE_TEAM_ID")
     key_path = File.expand_path("~/.appstoreconnect/private_keys/AuthKey_#{ENV.fetch('ASC_KEY_ID')}.p8")
 
-    build_number = latest_testflight_build_number(
-      api_key: api_key,
-      app_identifier: APP_ID,
-      initial_build_number: 0
-    ) + 1
+    # Sempre crescente: nunca menor que o numero da execucao do workflow, pra
+    # nao colidir com builds recusados no processamento (que nao contam no TestFlight).
+    build_number = [
+      latest_testflight_build_number(
+        api_key: api_key,
+        app_identifier: APP_ID,
+        initial_build_number: 0
+      ) + 1,
+      ENV.fetch("GITHUB_RUN_NUMBER", "0").to_i
+    ].max
 
     build_app(
       workspace: "Runner.xcworkspace",

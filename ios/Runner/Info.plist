@@ -26,6 +26,8 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>O site da Mutante Radio pode pedir acesso ao microfone para recursos de áudio. O app não grava nem guarda áudio por conta própria.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
