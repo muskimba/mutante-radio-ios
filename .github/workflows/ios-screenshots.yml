@@ -34,7 +34,7 @@ jobs:
           flutter build ios --simulator --debug
           cp -R build/ios/iphonesimulator/Runner.app /tmp/Runner-normal.app
 
-      - name: Build para o Simulador (demo: toca e abre o player)
+      - name: "Build para o Simulador (demo - toca e abre o player)"
         run: |
           flutter build ios --simulator --debug --dart-define=DEMO_MODE=true
           cp -R build/ios/iphonesimulator/Runner.app /tmp/Runner-demo.app
