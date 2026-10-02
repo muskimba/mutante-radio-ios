@@ -29,63 +29,54 @@ jobs:
         working-directory: ios
         run: pod install --repo-update
 
-      - name: Build para o Simulador
-        run: flutter build ios --simulator --debug
+      - name: Build para o Simulador (normal)
+        run: |
+          flutter build ios --simulator --debug
+          cp -R build/ios/iphonesimulator/Runner.app /tmp/Runner-normal.app
 
-      - name: Listar simuladores disponíveis
-        run: xcrun simctl list devices available
+      - name: Build para o Simulador (demo: toca e abre o player)
+        run: |
+          flutter build ios --simulator --debug --dart-define=DEMO_MODE=true
+          cp -R build/ios/iphonesimulator/Runner.app /tmp/Runner-demo.app
 
       - name: Preparar e capturar screenshots
         run: |
           set -e
-          APP_PATH="build/ios/iphonesimulator/Runner.app"
           BUNDLE_ID="com.mutanteradio.mutanteRadio"
           OUT="screenshots"
           mkdir -p "$OUT"
 
-          # descobre o runtime iOS mais novo disponível nesse runner (o nome
-          # dos aparelhos muda a cada ano/imagem, então nunca fixamos nomes)
           RUNTIME=$(xcrun simctl list runtimes -j | jq -r '
             [.runtimes[] | select(.name | startswith("iOS"))] | sort_by(.version) | last | .identifier')
-          echo "Runtime: $RUNTIME"
-
-          pick_udid () {
-            # $1 = regex preferido (ex.: "Pro Max"), $2 = lista de UDIDs a excluir
-            xcrun simctl list devices -j | jq -r --arg rt "$RUNTIME" --arg pat "$1" '
-              .devices[$rt][]? | select(.isAvailable) | select(.name | test($pat)) | .udid' \
-              | grep -vxF -f <(echo "$2") | head -1
-          }
-
-          MAIN_UDID=$(pick_udid "Pro Max" "")
-          if [ -z "$MAIN_UDID" ]; then
-            MAIN_UDID=$(xcrun simctl list devices -j | jq -r --arg rt "$RUNTIME" '
-              .devices[$rt][]? | select(.isAvailable) | .udid' | head -1)
+          UDID=$(xcrun simctl list devices -j | jq -r --arg rt "$RUNTIME" '
+            .devices[$rt][]? | select(.isAvailable) | select(.name | test("Pro Max")) | .udid' | head -1)
+          if [ -z "$UDID" ]; then
+            UDID=$(xcrun simctl list devices -j | jq -r --arg rt "$RUNTIME" '.devices[$rt][]? | select(.isAvailable) | .udid' | head -1)
           fi
-          SECOND_UDID=$(pick_udid "Plus|SE" "$MAIN_UDID")
+          echo "Simulador: $UDID"
 
-          DEVICE_IDS=("6.9in:$MAIN_UDID")
-          if [ -n "$SECOND_UDID" ] && [ "$SECOND_UDID" != "$MAIN_UDID" ]; then
-            DEVICE_IDS+=("5.5in:$SECOND_UDID")
-          fi
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          open -a Simulator --args -CurrentDeviceUDID "$UDID" || true
+          xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
 
-          for entry in "${DEVICE_IDS[@]}"; do
-            TAG="${entry%%:*}"
-            UDID="${entry##*:}"
-            NAME=$(xcrun simctl list devices -j | jq -r --arg rt "$RUNTIME" --arg u "$UDID" '
-              .devices[$rt][]? | select(.udid==$u) | .name')
-            echo "=== $NAME ($TAG) — $UDID ==="
+          # 1) home do site (build normal), com aquecimento fora de cena
+          xcrun simctl install "$UDID" /tmp/Runner-normal.app
+          xcrun simctl launch "$UDID" "$BUNDLE_ID"
+          sleep 30
+          xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
+          xcrun simctl launch "$UDID" "$BUNDLE_ID"
+          sleep 25
+          xcrun simctl io "$UDID" screenshot "$OUT/01-home.png"
+          xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
 
-            xcrun simctl boot "$UDID" || true
-            xcrun simctl bootstatus "$UDID" -b
-            xcrun simctl install "$UDID" "$APP_PATH"
-            xcrun simctl launch "$UDID" "$BUNDLE_ID"
-
-            # dá tempo do site carregar dentro do WebView antes da captura
-            sleep 15
-            xcrun simctl io "$UDID" screenshot "$OUT/${TAG}-01-app.png"
-
-            xcrun simctl shutdown "$UDID" || true
-          done
+          # 2) player aberto (build demo)
+          xcrun simctl install "$UDID" /tmp/Runner-demo.app
+          xcrun simctl launch "$UDID" "$BUNDLE_ID"
+          sleep 30
+          xcrun simctl io "$UDID" screenshot "$OUT/02-player-aberto.png"
+          sleep 8
+          xcrun simctl io "$UDID" screenshot "$OUT/03-player-aberto-b.png"
 
           ls -la "$OUT"
 
