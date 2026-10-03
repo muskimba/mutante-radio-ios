@@ -48,36 +48,43 @@ jobs:
 
           RUNTIME=$(xcrun simctl list runtimes -j | jq -r '
             [.runtimes[] | select(.name | startswith("iOS"))] | sort_by(.version) | last | .identifier')
-          UDID=$(xcrun simctl list devices -j | jq -r --arg rt "$RUNTIME" '
-            .devices[$rt][]? | select(.isAvailable) | select(.name | test("Pro Max")) | .udid' | head -1)
-          if [ -z "$UDID" ]; then
-            UDID=$(xcrun simctl list devices -j | jq -r --arg rt "$RUNTIME" '.devices[$rt][]? | select(.isAvailable) | .udid' | head -1)
-          fi
-          echo "Simulador: $UDID"
 
-          xcrun simctl boot "$UDID" || true
-          xcrun simctl bootstatus "$UDID" -b
-          open -a Simulator --args -CurrentDeviceUDID "$UDID" || true
-          xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
+          pick () {
+            xcrun simctl list devices -j | jq -r --arg rt "$RUNTIME" --arg pat "$1" '
+              .devices[$rt][]? | select(.isAvailable) | select(.name | test($pat)) | .udid' | head -1
+          }
 
-          # 1) home do site (build normal), com aquecimento fora de cena
-          xcrun simctl install "$UDID" /tmp/Runner-normal.app
-          xcrun simctl launch "$UDID" "$BUNDLE_ID"
-          sleep 30
-          xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
-          xcrun simctl launch "$UDID" "$BUNDLE_ID"
-          sleep 25
-          xcrun simctl io "$UDID" screenshot "$OUT/01-home.png"
-          xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
+          capture () {
+            # $1 = prefixo do arquivo, $2 = UDID
+            local TAG="$1" UDID="$2"
+            echo "=== $TAG — $UDID ==="
+            xcrun simctl boot "$UDID" || true
+            xcrun simctl bootstatus "$UDID" -b
+            open -a Simulator --args -CurrentDeviceUDID "$UDID" || true
+            xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
 
-          # 2) player aberto (build demo)
-          xcrun simctl install "$UDID" /tmp/Runner-demo.app
-          xcrun simctl launch "$UDID" "$BUNDLE_ID"
-          sleep 30
-          xcrun simctl io "$UDID" screenshot "$OUT/02-player-aberto.png"
-          sleep 8
-          xcrun simctl io "$UDID" screenshot "$OUT/03-player-aberto-b.png"
+            xcrun simctl install "$UDID" /tmp/Runner-normal.app
+            xcrun simctl launch "$UDID" "$BUNDLE_ID"
+            sleep 30
+            xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
+            xcrun simctl launch "$UDID" "$BUNDLE_ID"
+            sleep 25
+            xcrun simctl io "$UDID" screenshot "$OUT/${TAG}-01-home.png"
+            xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
 
+            xcrun simctl install "$UDID" /tmp/Runner-demo.app
+            xcrun simctl launch "$UDID" "$BUNDLE_ID"
+            sleep 30
+            xcrun simctl io "$UDID" screenshot "$OUT/${TAG}-02-player.png"
+            xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
+            xcrun simctl shutdown "$UDID" || true
+          }
+
+          IPHONE=$(pick "Pro Max")
+          IPAD=$(pick "iPad.*13")
+          echo "iPhone=$IPHONE iPad=$IPAD"
+          [ -n "$IPHONE" ] && capture iphone "$IPHONE"
+          [ -n "$IPAD" ] && capture ipad "$IPAD"
           ls -la "$OUT"
 
       - name: Guardar screenshots
